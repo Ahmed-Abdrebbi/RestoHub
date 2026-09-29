@@ -11,6 +11,8 @@ app.use(morgan("dev"));
 const authRoutes = require("./routes/auth.routes");
 app.use("/api/auth", authRoutes);
 
+const orderRoutes = require("./routes/order.routes")
+app.use("/api/orders", orderRoutes)
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
