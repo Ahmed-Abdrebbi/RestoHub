@@ -1,11 +1,10 @@
-const prisma = require("../lib/prisma");
-const { embedText } = require("../services/embedding.service");
+const prisma = require("../src/lib/prisma");
+const { embedText } = require("../src/services/embedding.service");
 
 async function generateEmbeddings() {
   const items = await prisma.$queryRaw`
     SELECT id, name, description, category, allergens
     FROM "MenuItem"
-    WHERE embedding IS NULL
   `;
 
   console.log(`${items.length} article(s) sans embedding.`);

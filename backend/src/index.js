@@ -14,6 +14,9 @@ app.use("/api/auth", authRoutes);
 const orderRoutes = require("./routes/order.routes")
 app.use("/api/orders", orderRoutes)
 
+const agentRoutes = require("./routes/agent.routes");
+app.use("/api/agent", agentRoutes);
+
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
 const PORT = process.env.PORT || 3000;

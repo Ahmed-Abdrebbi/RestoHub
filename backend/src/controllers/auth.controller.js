@@ -2,23 +2,29 @@ const bcrypt = require("bcrypt")
 const prisma = require("../lib/prisma")
 const { signAccessToken, generateRefreshToken, hashRefreshToken } = require("../utils/tokens");
 
-async function issueToken(user) {
+async function issueTokens(user) {
     const accessToken = signAccessToken(user)
-    const { raw, hash, expiresAt } = generatRefreshToken()
+    const { raw, hash, expiresAt } = generateRefreshToken()
     await prisma.refreshToken.create({ data:{ userId: user.id, tokenHash: hash, expiresAt } })
     return { accessToken, refreshToken: raw }
 }
 
 async function register(req, res) {
     const { name, email, password } = req.body
-    if (name || !email || !password) return res.status(400).json({ error: "name, email, password requis"})
+    
+    if (!name || !email || !password) {
+        return res.status(400).json({ error: "name, email, password requis"})
+    }
     
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) return res.status(409).json({ error: "Email deja utilise"})   
         
     const passwordHash = await bcrypt.hash(password, 12)
     const user = await prisma.user.create({ data: { name, email, passwordHash } }) 
-    return res.status(201).json({id: user.id, name: user.name, email: user.email, role: user.role })   
+    
+    const tokens = await issueTokens(user);
+    
+    return res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role }, ...tokens })   
 }
 
 async function login(req, res) {
