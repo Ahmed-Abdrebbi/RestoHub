@@ -1,124 +1,374 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { colors, radius, spacing } from "../../constants/theme";
-import { MOCK_CATEGORIES, MOCK_MENU_ITEMS } from "../../constants/mockData";
-import MealCard from "../../components/MealCard";
-import CategoryChip from "../../components/CategoryChip";
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 
-export default function Categories() {
-  const [activeCategory, setActiveCategory] = useState(null);
+export default function CategoriesScreen() {
+  const router = useRouter();
+  const [selectedFilter, setSelectedFilter] = useState('All Offerings');
 
-  const filtered = activeCategory
-    ? MOCK_MENU_ITEMS.filter((i) => i.categoryId === activeCategory)
-    : MOCK_MENU_ITEMS;
+  const categoriesData = [
+    { title: 'Burgers', items: '28 Items', badge: '★ 4.9' },
+    { title: 'Pizza', items: '18 Items', badge: 'Hot' },
+    { title: 'Sushi', items: '22 Items', badge: 'Fresh' },
+    { title: 'Chicken', items: '15 Items', badge: 'Crispy' },
+    { title: 'Grill', items: '19 Items', badge: 'Smoked' },
+    { title: 'Shawarma', items: '12 Items', badge: 'Toasted' },
+  ];
 
   return (
-    <View style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
-
-      {/* Header */}
-      <View style={styles.header}>
+    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={styles.headerRow}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={22} color="#FFF" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Categories</Text>
-        <Text style={styles.headerSub}>Browse our full menu by category</Text>
+        <View style={styles.headerIconsRow}>
+          <TouchableOpacity style={styles.iconCircle}>
+            <Ionicons name="search" size={16} color="#FFF" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileCircle}>
+            <Ionicons name="person" size={14} color="#FF6B00" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Category Chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, paddingRight: 24 }}
-        style={{ marginBottom: 20, flexGrow: 0 }}
-      >
-        <TouchableOpacity
-          style={[
-            styles.pillChip,
-            !activeCategory && styles.pillChipActive,
-          ]}
-          onPress={() => setActiveCategory(null)}
-        >
-          <Text
-            style={[
-              styles.pillText,
-              !activeCategory && styles.pillTextActive,
-            ]}
-          >
-            All
-          </Text>
+      <View style={styles.searchRow}>
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={18} color="#777" style={styles.searchIcon} />
+          <TextInput 
+            style={styles.searchInput}
+            placeholder="Search culinary cravings..."
+            placeholderTextColor="#777"
+          />
+        </View>
+        <TouchableOpacity style={styles.filterButton}>
+          <Ionicons name="options-outline" size={18} color="#FF6B00" />
         </TouchableOpacity>
-        {MOCK_CATEGORIES.map((cat) => (
-          <TouchableOpacity
-            key={cat.id}
-            style={[
-              styles.pillChip,
-              activeCategory === cat.id && styles.pillChipActive,
-            ]}
-            onPress={() => setActiveCategory(cat.id)}
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersRow}>
+        {['All Offerings', "Chef's Choice", 'Most Popular', 'Late Night'].map((filter) => (
+          <TouchableOpacity 
+            key={filter} 
+            style={[styles.filterChip, selectedFilter === filter && styles.activeFilterChip]}
+            onPress={() => setSelectedFilter(filter)}
           >
-            <Ionicons
-              name={cat.icon}
-              size={16}
-              color={activeCategory === cat.id ? "#0D0D0D" : colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.pillText,
-                activeCategory === cat.id && styles.pillTextActive,
-              ]}
-            >
-              {cat.name}
+            <Text style={[styles.filterText, selectedFilter === filter && styles.activeFilterText]}>
+              {filter === 'All Offerings' && '• '}
+              {filter}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Grid */}
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={styles.gridWrap}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.grid}>
-          {filtered.map((item) => (
-            <MealCard key={item.id} item={item} />
-          ))}
+      <View style={styles.sectionHeader}>
+        <View>
+          <Text style={styles.sectionTitle}>Explore Menu</Text>
+          <Text style={styles.sectionSubtitle}>6 curated culinary collections</Text>
         </View>
-      </ScrollView>
-    </View>
+        <View style={styles.trendingBadge}>
+          <Ionicons name="flame" size={12} color="#FF6B00" />
+          <Text style={styles.trendingText}>Trending</Text>
+        </View>
+      </View>
+
+      <View style={styles.gridContainer}>
+        {categoriesData.map((cat, index) => (
+          <TouchableOpacity key={index} style={styles.card}>
+            <View style={styles.cardImagePlaceholder}>
+              <View style={styles.badgeBox}>
+                <Text style={styles.badgeText}>{cat.badge}</Text>
+              </View>
+            </View>
+            <View style={styles.cardFooter}>
+              <View>
+                <Text style={styles.cardTitle}>{cat.title}</Text>
+                <Text style={styles.cardItems}>{cat.items}</Text>
+              </View>
+              <View style={styles.arrowIconBox}>
+                <Ionicons name="arrow-forward" size={14} color="#FFF" />
+              </View>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={styles.aiCard}>
+        <View style={styles.aiLeftRow}>
+          <View style={styles.backButtonMini}>
+            <Ionicons name="chevron-back" size={16} color="#FF6B00" />
+          </View>
+          <View>
+            <View style={styles.aiTitleRow}>
+              <Text style={styles.aiTitle}>Can't decide yet?</Text>
+              <View style={styles.newBadge}>
+                <Text style={styles.newBadgeText}>NEW</Text>
+              </View>
+            </View>
+            <Text style={styles.aiSubtitle}>Let Chef AI generate...</Text>
+          </View>
+        </View>
+        <TouchableOpacity style={styles.surpriseButton}>
+          <Text style={styles.surpriseButtonText}>Surprise ✦</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: 24, paddingTop: 56, paddingBottom: 16 },
-  headerTitle: { color: colors.text, fontSize: 26, fontWeight: "600" },
-  headerSub: { color: colors.textMuted, fontSize: 15, marginTop: 4 },
-  pillChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
-    backgroundColor: colors.surface,
+  container: {
+    flexGrow: 1,
+    backgroundColor: '#121212',
+    paddingHorizontal: 20,
+    paddingTop: 45,
+    paddingBottom: 40,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  headerTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  headerIconsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  iconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#1B1B1B',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#2A1A10',
+    borderWidth: 1,
+    borderColor: '#FF6B00',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 10,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1B1B1B',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    paddingHorizontal: 12,
+    height: 46,
+  },
+  searchIcon: {
     marginRight: 8,
   },
-  pillChipActive: {
-    backgroundColor: colors.primary,
+  searchInput: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 14,
   },
-  pillText: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
-  pillTextActive: { color: "#0D0D0D" },
-  gridWrap: { paddingHorizontal: 24, paddingBottom: 24 },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
+  filterButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: '#1B1B1B',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
+  filtersRow: {
+    gap: 8,
+    marginBottom: 20,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#1B1B1B',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  activeFilterChip: {
+    backgroundColor: '#FF6B00',
+    borderColor: '#FF6B00',
+  },
+  filterText: {
+    color: '#888',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  activeFilterText: {
+    color: '#FFF',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  sectionSubtitle: {
+    color: '#777',
+    fontSize: 12,
+  },
+  trendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1B1B1B',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    gap: 4,
+  },
+  trendingText: {
+    color: '#FF6B00',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 14,
+    marginBottom: 20,
+  },
+  card: {
+    width: '48%',
+    backgroundColor: '#1B1B1B',
+    borderRadius: 16,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  cardImagePlaceholder: {
+    height: 100,
+    backgroundColor: '#252525',
+    borderRadius: 12,
+    marginBottom: 10,
+    padding: 8,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+  },
+  badgeBox: {
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  badgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardTitle: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  cardItems: {
+    color: '#777',
+    fontSize: 11,
+  },
+  arrowIconBox: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#2A2A2A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiCard: {
+    backgroundColor: '#1B1B1B',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  aiLeftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  backButtonMini: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#2A1A10',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  aiTitle: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  newBadge: {
+    backgroundColor: '#FF6B00',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  newBadgeText: {
+    color: '#FFF',
+    fontSize: 8,
+    fontWeight: 'bold',
+  },
+  aiSubtitle: {
+    color: '#777',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  surpriseButton: {
+    backgroundColor: '#252525',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  surpriseButtonText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  }
 });
