@@ -3,3 +3,6 @@ node_modules/
 .expo/
 dist/
 *.log
+docker-compose.yml
+backend/.env
+mobile/.env
