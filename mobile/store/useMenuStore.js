@@ -1,8 +1,17 @@
-import { create } from "zustand";
+import { create } from 'zustand';
 
 export const useMenuStore = create((set) => ({
+
   items: [],
-  categories: [],
-  setItems: (items) => set({ items }),
-  setCategories: (categories) => set({ categories }),
+  selectedCategory: 'ALL',
+  searchQuery: '',
+  
+
+  setMenuItems: (items) => set({ items }),
+
+
+  setSelectedCategory: (category) => set({ selectedCategory: category }),
+
+
+  setSearchQuery: (query) => set({ searchQuery: query }),
 }));
