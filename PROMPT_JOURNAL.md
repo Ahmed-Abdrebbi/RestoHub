@@ -60,3 +60,222 @@ Finaliser l'intégration de l'Agent IA conversationnel côté Backend, valider l
     * **Mise à jour LLM :** Changement du modèle LLM dans `orchestrator.js` vers `llama-3.1-70b-versatile`, optimisé pour l'utilisation d'outils (Tool Calling).
     * **Refactoring (Architecture Clean) :** Nettoyage de l'arborescence en déplaçant le dossier `scripts` à la racine du projet. L'IA a validé la bonne séparation des responsabilités (MVC) avec un dossier isolé `services/agent/` contenant `orchestrator.js` et `tools.js`.
     * **Génération de vecteurs :** Exécution réussie du script de migration pour mettre à jour la colonne à `vector(384)` dans PostgreSQL et génération des embeddings pour 9 articles du menu.
+
+    1. Project Overview
+Project Name: Smart Menu App
+
+Tech Stack: React Native (Expo Router), Zustand, Node.js / Express, PostgreSQL + Prisma ORM.
+
+UI/UX Design Standard: Premium Dark Theme (#121212, #1B1B1B, #2A2A2A) with Vibrant Orange Accent (#FF6B00).
+
+2. Completed Prompts & UI Screen Logs
+🔹 Prompt #01: Root Layout & Global Setup
+User Request: Configurer l-layout d-app m3a l-colors w Status Bar.
+
+JavaScript
+// app/_layout.js
+import { Stack } from "expo-router";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+
+export default function RootLayout() {
+  return (
+    <SafeAreaProvider>
+      <StatusBar style="light" />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#121212" } }} />
+    </SafeAreaProvider>
+  );
+}
+🔹 Prompt #02: Home Screen UI
+User Request: Create Home Screen code with Best Seller banner, categories, and popular meals grid.
+
+File Location: app/(tabs)/home.js
+
+Features Included:
+
+Brand Header ("Smart Menu") & Profile Quick Icon.
+
+Search Input & Filter Button.
+
+Best Seller Banner ("Double Beef Burger Deluxe" with "Order now").
+
+Horizontal Category Selector (Burger, Pizza, Chicken, Salad, Drinks).
+
+2-column Grid for Popular Meals with prices, ratings, and Quick Add + buttons.
+
+🔹 Prompt #03: Categories Screen UI
+User Request: Create Categories Page code.
+
+File Location: app/(tabs)/categories.js
+
+Features Included:
+
+Filter Chips ("All Offerings", "Chef's Choice", "Most Popular", "Late Night").
+
+2x3 Grid layout for Categories (Burgers, Pizza, Sushi, Chicken, Grill, Shawarma) with badges (★ 4.9, Hot, Fresh, Crispy).
+
+Chef AI "Surprise ✦" callout card at the bottom.
+
+🔹 Prompt #04: Meal Detail Screen UI
+User Request: Create Meal Detail View code with image overlay and custom options.
+
+File Location: app/menu-item/[id].js
+
+Features Included:
+
+Full-width burger image with "CHEF'S SPECIAL" badge and favorite button.
+
+Interactive Quantity Counter (- / +).
+
+Nutritional & Preparation Meta Badges (650 kcal, 4.9 rating, 15-20 min).
+
+Customization Checkboxes (Extra Aged Cheddar, Bacon Strips, Caramelized Onions, Truffle Mayo).
+
+Sticky Bottom Price Bar ($14.99) & "Add to cart" CTA.
+
+🔹 Prompt #05: Digital Waiter AI Chat UI
+User Request: Create Digital Waiter AI Assistant Page code.
+
+File Location: app/(tabs)/assistant.js
+
+Features Included:
+
+Header with "Table 14 • Instant Replies" & "Call Waiter" action button.
+
+Conversational chat UI (Bot messages & User speech bubbles).
+
+AI-generated Order Summary Card inside chat with item preview photos, tax calculations, kitchen ETA, and "Modify" / "Confirm Order" buttons.
+
+Quick Preference Suggestion Chips ("Add Craft Soda", "Nut Allergy Notes").
+
+Voice & Text Input synchronized with Table 14 POS.
+
+🔹 Prompt #06: Smart Menu Cart UI
+User Request: Create Cart Screen code.
+
+File Location: app/(tabs)/cart.js
+
+Features Included:
+
+Table 14 Dine-In info bar with "PRIORITY" badge.
+
+Itemized selection list with image placeholders, item subtitles, and quantity adjusters.
+
+Kitchen Instructions / Allergies trigger.
+
+Promo Code Box (CHEFSPECIAL applied, -$2.00 credit).
+
+Detailed Payment Summary (Subtotal, Service Fee, Tax, Total $23.79).
+
+"Send Order to Kitchen" action button.
+
+🔹 Prompt #07: Checkout Screen UI
+User Request: Create Checkout Screen code.
+
+File Location: app/order/checkout.js
+
+Features Included:
+
+Address Selection Cards (Home - Default vs Work).
+
+Payment Method Radio Selectors (Mastercard •••• 4829, Apple Pay, Cash on Delivery).
+
+Breakdown with CHEFPROMO applied ($24.79 total).
+
+Secure "Confirm & Place Order" button with legal terms notice.
+
+🔹 Prompt #08: Order Confirmation Modal UI
+User Request: Create Confirmation Modal / Popup code.
+
+File Location: app/order/index.js
+
+Features Included:
+
+Dark transparent blur overlay modal.
+
+🎉 Party Popper Icon & "Congratulations!" celebration header.
+
+Order Receipt Badge (ORDER #SM-84920 • DELIVERY).
+
+"Track Order / Ok" redirection button.
+
+🔹 Prompt #09: Order History (My Orders) UI
+User Request: Create Order History Screen code.
+
+File Location: app/order/orders.js
+
+Features Included:
+
+Status filter chips ("All Orders", "Active (2)", "Completed", "Cancelled").
+
+Order cards with dynamic status indicators (PREPARING, READY, DELIVERED).
+
+Live preparation progress bar ("On the grill & assembling", ~7 mins left).
+
+Contextual action buttons ("Track Order", "Receipt", "View QR Code", "Reorder", "Rate").
+
+🔹 Prompt #10: Order Live Tracking UI (#1234)
+User Request: Create Order Tracking Screen code.
+
+File Location: app/order/[id].js
+
+Features Included:
+
+Header banner ("Grilling in Progress", Table #04, 15–20 min estimate).
+
+Vertical Order Journey Timeline (Order Received ➔ In the Kitchen ➔ Ready for Table ➔ Served & Enjoy).
+
+Ordered item list and Apple Pay payment summary.
+
+"Call Waiter / Support" & "View Digital Receipt & Split" buttons.
+
+🔹 Prompt #11: Folder Layout (app/order/_layout.js)
+User Request: Provide exact layout code for order folder routing.
+
+JavaScript
+// app/order/_layout.js
+import { Stack } from 'expo-router';
+
+export default function OrderLayout() {
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: '#121212' },
+        animation: 'slide_from_right',
+      }}
+    >
+      <Stack.Screen name="index" />
+      <Stack.Screen name="checkout" />
+      <Stack.Screen name="orders" />
+      <Stack.Screen name="[id]" />
+    </Stack>
+  );
+}
+🔹 Prompt #12: Profile Screen UI
+User Request: Create Profile Page code.
+
+File Location: app/(tabs)/profile.js
+
+Features Included:
+
+Profile card with VIP badge, email, table info, and stats (Total Visits, Ember Pts, Level 3 Tier).
+
+Smart Wallet Card ($148.50 USD balance) with "Top Up" button.
+
+Preferences section with Dark Mode & Push Alerts switches.
+
+Menu list (Order History, Favorites, Language, Settings, Help, Terms, Privacy).
+
+Red Logout Button.
+
+🔹 Prompt #13: Onboarding Screens (Steps 01, 02 & 03)
+User Request: Create Onboarding code for all 3 steps.
+
+File Locations:
+
+app/onboarding.js (Step 01 - Grid Collage - Choose your meal!)
+
+app/onboarding-offer.js (Step 02 - Special Offer - First order perk 30% discount)
+
+app/onboarding-tracking.js (Step 03 - Track your order now - Live GPS map preview)

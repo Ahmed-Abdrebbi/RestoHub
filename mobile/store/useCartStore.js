@@ -3,6 +3,8 @@ import { create } from 'zustand';
 export const useCartStore = create((set, get) => ({
   items: [],
 
+  getItemCount: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
+  
   addToCart: (item, quantityToAdd = 1) => set((state) => {
     const existingItem = state.items.find((i) => i.id === item.id);
     
