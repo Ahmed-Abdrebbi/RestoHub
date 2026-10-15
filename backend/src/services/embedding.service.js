@@ -1,25 +1,18 @@
-const axios = require("axios");
+let embedderPromise = null;
 
-const HF_API_TOKEN = process.env.HF_API_TOKEN;
-const MODEL_ID = "sentence-transformers/all-MiniLM-L6-v2";
+async function getEmbedder() {
+  if (!embedderPromise) {
+    embedderPromise = import("@huggingface/transformers").then(({ pipeline }) =>
+      pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2")
+    );
+  }
+  return embedderPromise;
+}
 
 async function embedText(text) {
-  try {
-    const response = await axios.post(
-      `https://router.huggingface.co/hf-inference/models/${MODEL_ID}/pipeline/feature-extraction`,
-      { inputs: [text] },
-      {
-        headers: {
-          Authorization: `Bearer ${HF_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-    return response.data[0];
-  } catch (error) {
-    console.error("Erreur Hugging Face:", error.response ? error.response.data : error.message);
-    throw new Error("Erreur lors de la création de l'embedding");
-  }
+  const extractor = await getEmbedder();
+  const output = await extractor(text, { pooling: "mean", normalize: true });
+  return Array.from(output.data);
 }
 
 module.exports = { embedText };

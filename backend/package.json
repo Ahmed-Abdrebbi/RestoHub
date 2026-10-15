@@ -10,6 +10,7 @@
   "keywords": [],
   "type": "commonjs",
   "dependencies": {
+    "@huggingface/transformers": "^4.3.1",
     "@prisma/client": "^6.19.3",
     "axios": "^1.20.0",
     "bcrypt": "^6.0.0",
@@ -26,5 +27,9 @@
     "cross-env": "^10.1.0",
     "nodemon": "^3.1.14",
     "prisma": "^6.19.3"
+  },
+  "allowScripts": {
+    "onnxruntime-node@1.30.0": true,
+    "bcrypt@6.0.0": true
   }
 }

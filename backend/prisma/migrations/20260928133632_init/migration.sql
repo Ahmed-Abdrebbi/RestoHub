@@ -31,7 +31,7 @@ CREATE TABLE "MenuItem" (
     "category" TEXT NOT NULL,
     "allergens" TEXT[],
     "isAvailable" BOOLEAN NOT NULL DEFAULT true,
-    "embedding" vector(1536),
+    "embedding" vector(384),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
