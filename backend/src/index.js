@@ -19,5 +19,8 @@ app.use("/api/agent", agentRoutes);
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
+const menuItemRoutes = require("./routes/menuItem.routes");
+app.use("/api/menu-items", menuItemRoutes);
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
