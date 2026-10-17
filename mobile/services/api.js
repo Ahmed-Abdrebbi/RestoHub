@@ -1,7 +1,26 @@
-import axios from "axios";
+import axios from 'axios';
+import { useAuthStore } from '../store/useAuthStore';
 
-// Remplace par ton IP locale (ex: http://192.168.1.10:3000/api) pour tester sur téléphone/simulateur 
-// "localhost" ne fonctionne pas depuis un appareil physique/émulateur.
-export const api = axios.create({
-  baseURL: "http://localhost:3000/api",
+
+const api = axios.create({
+  baseURL: 'http://localhost:5000/api', 
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
+
+
+api.interceptors.request.use(
+  async (config) => {
+    const token = useAuthStore.getState().accessToken;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+export default api;
