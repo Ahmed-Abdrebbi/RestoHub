@@ -279,3 +279,21 @@ app/onboarding.js (Step 01 - Grid Collage - Choose your meal!)
 app/onboarding-offer.js (Step 02 - Special Offer - First order perk 30% discount)
 
 app/onboarding-tracking.js (Step 03 - Track your order now - Live GPS map preview)
+
+## 17 Octobre 2026 — Bug critique : double exécution de place_order
+
+Incident : Lors des tests du scénario complet (recherche → intention → confirmation),
+l'agent a créé DEUX commandes réelles pour une seule confirmation utilisateur.
+
+Cause racine : une duplication accidentelle de la fonction runAgentConversation()
+dans orchestrator.js (deux définitions dans le même fichier, la seconde écrasant
+la première sans la logique de garde-fou).
+
+Correction : fusion en une seule fonction + ajout d'un flag orderPlacedThisTurn
+qui bloque toute réexécution de place_order au sein d'un même tour de boucle,
+indépendamment de la décision du modèle (protection côté serveur, pas seulement
+côté prompt).
+
+Leçon retenue : un modèle 20B (openai/gpt-oss-20b) est moins fiable qu'un modèle
+GPT-4-class pour respecter des instructions de confirmation strictes — un garde-fou
+dans le code est indispensable, le system prompt seul ne suffit pas.

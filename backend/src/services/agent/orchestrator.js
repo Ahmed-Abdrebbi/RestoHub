@@ -4,9 +4,9 @@ const { searchMenu } = require("../menu.service");
 const { createOrder } = require("../order.service");
 const { toolSchemas } = require("./tools");
 
-const openai = new OpenAI({ 
+const openai = new OpenAI({
   apiKey: process.env.GROQ_API_KEY,
-  baseURL: "https://api.groq.com/openai/v1" 
+  baseURL: "https://api.groq.com/openai/v1",
 });
 
 const MAX_ITER = 5;
@@ -43,6 +43,7 @@ async function executeTool(name, args, context) {
 
 async function runAgentConversation({ messages, onToken, onToolEvent, context }) {
   let iter = 0;
+  let orderPlacedThisTurn = false;
 
   while (iter < MAX_ITER) {
     iter++;
@@ -93,13 +94,23 @@ async function runAgentConversation({ messages, onToken, onToolEvent, context })
 
     for (const tc of toolCalls) {
       const args = JSON.parse(tc.arguments || "{}");
+
+      if (tc.name === "place_order" && orderPlacedThisTurn) {
+        const result = { error: "deja_execute", message: "Une commande a deja ete creee dans cet echange, ne pas reexecuter place_order." };
+        await onToolEvent({ tool: tc.name, args, result });
+        messages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) });
+        continue;
+      }
+
       const result = await executeTool(tc.name, args, context);
+      if (tc.name === "place_order" && !result.error) orderPlacedThisTurn = true;
+
       await onToolEvent({ tool: tc.name, args, result });
       messages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) });
     }
-}
+  }
 
-  throw new Error("MAX_ITER atteint sans réponse finale du modèle");
+  throw new Error("MAX_ITER atteint sans reponse finale du modele");
 }
 
 module.exports = { runAgentConversation };
