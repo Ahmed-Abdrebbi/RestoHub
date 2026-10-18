@@ -4,6 +4,10 @@ export const useConversationStore = create((set) => ({
 
   messages: [],
   isStreaming: false,
+  conversationId: null,
+
+
+  setConversationId: (id) => set({ conversationId: id }),
 
 
   addMessage: (message) => set((state) => ({
@@ -29,5 +33,5 @@ export const useConversationStore = create((set) => ({
 
   setIsStreaming: (status) => set({ isStreaming: status }),
 
-  clearConversation: () => set({ messages: [], isStreaming: false })
+  clearConversation: () => set({ messages: [], isStreaming: false, conversationId: null })
 }));
