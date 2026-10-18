@@ -16,9 +16,8 @@ export const login = async (credentials) => {
   try {
     const response = await api.post('/auth/login', credentials);
     const { user, accessToken } = response.data;
-    
 
-    useAuthStore.getState().setAuth(user, accessToken);
+    await useAuthStore.getState().setAuth(user, accessToken);
     
     return response.data;
   } catch (error) {
@@ -33,7 +32,6 @@ export const logout = async () => {
   } catch (error) {
     console.log('Logout error:', error);
   } finally {
-
-    useAuthStore.getState().logout();
+    await useAuthStore.getState().logout();
   }
 };
