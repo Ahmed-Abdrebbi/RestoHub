@@ -1,10 +1,62 @@
-import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import { getMenuItems } from '../../services/menuService';
+import { useMenuStore } from '../../store/useMenuStore';
+import { useCartStore } from '../../store/useCartStore';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const menuItems = useMenuStore((s) => s.items);
+  const setMenuItems = useMenuStore((s) => s.setMenuItems);
+  const addToCart = useCartStore((s) => s.addToCart);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchMenuItems();
+  }, []);
+
+  const fetchMenuItems = async () => {
+    try {
+      setLoading(true);
+      const data = await getMenuItems();
+      const items = data.menuItems || data.data || data || [];
+      setMenuItems(Array.isArray(items) ? items : []);
+    } catch (err) {
+      console.log('Failed to fetch menu items:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Derive categories from real data
+  const categoryIcons = {
+    'Burger': 'hamburger',
+    'Pizza': 'pizza',
+    'Chicken': 'drumstick',
+    'Salad': 'utensils',
+    'Drinks': 'glass-martini-alt',
+    'Sushi': 'fish',
+    'Grill': 'fire',
+    'Dessert': 'ice-cream',
+  };
+
+  const categoryCounts = {};
+  (menuItems || []).forEach((item) => {
+    const cat = item.category || 'Other';
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+  });
+
+  const categories = Object.entries(categoryCounts).map(([name, count], index) => ({
+    name,
+    icon: categoryIcons[name] || 'utensils',
+    active: index === 0,
+    count: `${count} items`,
+  }));
+
+  // Show up to 4 popular meals
+  const popularMeals = (menuItems || []).slice(0, 4);
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -61,19 +113,17 @@ export default function HomeScreen() {
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Categories</Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/categories')}>
           <Text style={styles.seeMoreText}>See more &gt;</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesRow}>
-        {[
-          { name: 'Burger', icon: 'hamburger', active: true, count: '24 items' },
-          { name: 'Pizza', icon: 'pizza', active: false, count: '18 items' },
-          { name: 'Chicken', icon: 'drumstick', active: false, count: '12 items' },
-          { name: 'Salad', icon: 'utensils', active: false, count: '10 items' },
-          { name: 'Drinks', icon: 'glass-martini-alt', active: false, count: '20 items' },
-        ].map((cat, index) => (
+        {(categories.length > 0 ? categories : [
+          { name: 'Burger', icon: 'hamburger', active: true, count: '—' },
+          { name: 'Pizza', icon: 'pizza', active: false, count: '—' },
+          { name: 'Chicken', icon: 'drumstick', active: false, count: '—' },
+        ]).map((cat, index) => (
           <TouchableOpacity key={index} style={[styles.categoryCard, cat.active && styles.activeCategoryCard]}>
             <View style={[styles.categoryIconBox, cat.active && styles.activeCategoryIconBox]}>
               <FontAwesome5 name={cat.icon} size={18} color={cat.active ? '#FF6B00' : '#888'} />
@@ -91,36 +141,50 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.mealsGrid}>
-        {[
-          { title: 'Cheesy Bacon Bur...', price: '$12.99', rating: '4.7', reviews: '(230)' },
-          { title: 'Rustic Pepperoni', price: '$15.50', rating: '4.8', reviews: '(110)' },
-          { title: 'Crispy Chicken Ten...', price: '$10.99', rating: '4.9', reviews: '(210)' },
-          { title: 'Greek Avocado Sal...', price: '$9.50', rating: '4.7', reviews: '(75)' },
-        ].map((meal, index) => (
-          <TouchableOpacity 
-            key={index} 
-            style={styles.mealCard}
-            onPress={() => router.push(`/menu-item/${index}`)}
-          >
-            <View style={styles.mealImagePlaceholder}>
-              <Ionicons name="heart-outline" size={16} color="#FFF" style={styles.heartIcon} />
-            </View>
-            <Text style={styles.mealTitle} numberOfLines={1}>{meal.title}</Text>
-            <View style={styles.mealRatingRow}>
-              <Ionicons name="star" size={12} color="#FFA500" />
-              <Text style={styles.mealRatingText}>{meal.rating}</Text>
-              <Text style={styles.mealReviewsText}>{meal.reviews}</Text>
-            </View>
-            <View style={styles.mealFooter}>
-              <Text style={styles.mealPrice}>{meal.price}</Text>
-              <View style={styles.plusButton}>
-                <Ionicons name="add" size={16} color="#FFF" />
+      {loading ? (
+        <ActivityIndicator size="large" color="#FF6B00" style={{ marginTop: 20 }} />
+      ) : (
+        <View style={styles.mealsGrid}>
+          {popularMeals.map((meal) => (
+            <TouchableOpacity 
+              key={meal._id || meal.id} 
+              style={styles.mealCard}
+              onPress={() => router.push(`/menu-item/${meal._id || meal.id}`)}
+            >
+              <View style={styles.mealImagePlaceholder}>
+                {meal.image ? (
+                  <Image source={{ uri: meal.image }} style={styles.mealImage} resizeMode="cover" />
+                ) : null}
+                <Ionicons name="heart-outline" size={16} color="#FFF" style={styles.heartIcon} />
               </View>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
+              <Text style={styles.mealTitle} numberOfLines={1}>{meal.name || meal.title}</Text>
+              <View style={styles.mealRatingRow}>
+                <Ionicons name="star" size={12} color="#FFA500" />
+                <Text style={styles.mealRatingText}>{meal.rating || '4.5'}</Text>
+                <Text style={styles.mealReviewsText}>({meal.reviewCount || '—'})</Text>
+              </View>
+              <View style={styles.mealFooter}>
+                <Text style={styles.mealPrice}>${(meal.price || 0).toFixed(2)}</Text>
+                <TouchableOpacity 
+                  style={styles.plusButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    addToCart({
+                      id: meal._id || meal.id,
+                      name: meal.name || meal.title,
+                      title: meal.name || meal.title,
+                      price: meal.price,
+                      image: meal.image,
+                    });
+                  }}
+                >
+                  <Ionicons name="add" size={16} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -356,11 +420,17 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'flex-end',
     padding: 6,
+    overflow: 'hidden',
+  },
+  mealImage: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 10,
   },
   heartIcon: {
     backgroundColor: 'rgba(0,0,0,0.4)',
     padding: 4,
     borderRadius: 10,
+    zIndex: 1,
   },
   mealTitle: {
     color: '#FFF',
