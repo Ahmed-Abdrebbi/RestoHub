@@ -1,16 +1,32 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, FontAwesome, AntDesign } from '@expo/vector-icons';
+import { login } from '../../services/authService';
 
 export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSignIn = () => {
-    router.replace('/(tabs)/home');
+  const handleSignIn = async () => {
+    if (!email || !password) {
+      setError('Please enter email and password.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      await login({ email, password });
+      router.replace('/(tabs)/home');
+    } catch (err) {
+      setError(err?.message || err?.error || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -35,6 +51,13 @@ export default function LoginScreen() {
 
       <Text style={styles.title}>Sign in</Text>
       <Text style={styles.subtitle}>Welcome back! Please enter your details.</Text>
+
+      {error ? (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={16} color="#FF4444" />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
 
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Email Address</Text>
@@ -74,8 +97,12 @@ export default function LoginScreen() {
         <Text style={styles.forgotText}>Forgot Password?</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
-        <Text style={styles.signInButtonText}>Sign in</Text>
+      <TouchableOpacity style={[styles.signInButton, loading && styles.signInButtonDisabled]} onPress={handleSignIn} disabled={loading}>
+        {loading ? (
+          <ActivityIndicator color="#FFF" />
+        ) : (
+          <Text style={styles.signInButtonText}>Sign in</Text>
+        )}
       </TouchableOpacity>
 
       <View style={styles.dividerRow}>
@@ -165,6 +192,20 @@ const styles = StyleSheet.create({
     color: '#888',
     marginBottom: 25,
   },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  errorText: {
+    color: '#FF4444',
+    fontSize: 13,
+    flex: 1,
+  },
   inputContainer: {
     marginBottom: 16,
   },
@@ -207,6 +248,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 25,
+  },
+  signInButtonDisabled: {
+    opacity: 0.7,
   },
   signInButtonText: {
     color: '#FFFFFF',

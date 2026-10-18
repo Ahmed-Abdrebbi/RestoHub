@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, FontAwesome, AntDesign } from '@expo/vector-icons';
+import { register } from '../../services/authService';
+import { login } from '../../services/authService';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -11,9 +13,30 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSignUp = () => {
-    router.replace('/(tabs)/home');
+  const handleSignUp = async () => {
+    if (!fullName || !email || !password || !confirmPassword) {
+      setError('Please fill in all fields.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      await register({ name: fullName, email, password });
+      // Auto-login after successful registration
+      await login({ email, password });
+      router.replace('/(tabs)/home');
+    } catch (err) {
+      setError(err?.message || err?.error || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -38,6 +61,13 @@ export default function RegisterScreen() {
 
       <Text style={styles.title}>Sign up</Text>
       <Text style={styles.subtitle}>Create an account to get started with delicious food.</Text>
+
+      {error ? (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={16} color="#FF4444" />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
 
       <View style={styles.inputContainer}>
         <Text style={styles.label}>FULL NAME</Text>
@@ -105,8 +135,12 @@ export default function RegisterScreen() {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
-        <Text style={styles.signUpButtonText}>Sign up</Text>
+      <TouchableOpacity style={[styles.signUpButton, loading && styles.signUpButtonDisabled]} onPress={handleSignUp} disabled={loading}>
+        {loading ? (
+          <ActivityIndicator color="#FFF" />
+        ) : (
+          <Text style={styles.signUpButtonText}>Sign up</Text>
+        )}
       </TouchableOpacity>
 
       <View style={styles.dividerRow}>
@@ -197,6 +231,20 @@ const styles = StyleSheet.create({
     color: '#888',
     marginBottom: 20,
   },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+    gap: 8,
+  },
+  errorText: {
+    color: '#FF4444',
+    fontSize: 13,
+    flex: 1,
+  },
   inputContainer: {
     marginBottom: 14,
   },
@@ -233,6 +281,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
     marginBottom: 20,
+  },
+  signUpButtonDisabled: {
+    opacity: 0.7,
   },
   signUpButtonText: {
     color: '#FFFFFF',
