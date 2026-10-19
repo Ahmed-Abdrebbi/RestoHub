@@ -1,11 +1,83 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { sendChatMessage } from '../../services/chatService';
 
 export default function AssistantScreen() {
   const router = useRouter();
   const [inputText, setInputText] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [activeTool, setActiveTool] = useState(null);
+  const scrollViewRef = useRef(null);
+
+  const [messages, setMessages] = useState([
+    {
+      id: 'init-1',
+      role: 'assistant',
+      text: "Hello! 👋 I'm your Digital Waiter today. Looking for chef recommendations, dietary pairings, or ready to order right now?",
+      time: '7:42 PM',
+    },
+  ]);
+
+  const handleSend = (textToSend) => {
+    const text = (typeof textToSend === 'string' ? textToSend : inputText).trim();
+    if (!text || isStreaming) return;
+
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const userMsg = {
+      id: `u-${Date.now()}`,
+      role: 'user',
+      text,
+      time: now,
+    };
+
+    const assistantMsgId = `a-${Date.now()}`;
+    const assistantMsg = {
+      id: assistantMsgId,
+      role: 'assistant',
+      text: '',
+      time: now,
+    };
+
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    setInputText('');
+    setIsStreaming(true);
+    setActiveTool(null);
+
+    sendChatMessage(text, {
+      onToken: (token) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId ? { ...m, text: m.text + token } : m
+          )
+        );
+      },
+      onTool: (tool) => {
+        const toolName = tool.name || tool.tool || (typeof tool === 'string' ? tool : 'Processing tool');
+        setActiveTool(toolName);
+      },
+      onDone: () => {
+        setIsStreaming(false);
+        setActiveTool(null);
+      },
+      onError: (err) => {
+        setIsStreaming(false);
+        setActiveTool(null);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  text: m.text ? m.text : 'Sorry, I encountered an issue connecting to the AI assistant.',
+                  isError: true,
+                }
+              : m
+          )
+        );
+      },
+    });
+  };
 
   return (
     <View style={styles.container}>
@@ -20,7 +92,7 @@ export default function AssistantScreen() {
           </View>
           <View>
             <Text style={styles.headerTitle}>Digital Waiter</Text>
-            <Text style={styles.headerStatus}>● Online Assistant</Text>
+            <Text style={styles.headerStatus}>{isStreaming ? '● Generating response...' : '● Online Assistant'}</Text>
           </View>
         </View>
         <TouchableOpacity style={styles.notificationBtn}>
@@ -41,156 +113,66 @@ export default function AssistantScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.timestampText}>TODAY • 7:42 PM</Text>
+      <Text style={styles.timestampText}>TODAY • LIVE SESSION</Text>
 
       {/* Chat Messages List */}
-      <ScrollView contentContainerStyle={styles.chatContainer} showsVerticalScrollIndicator={false}>
-        {/* Bot Greeting */}
-        <View style={styles.botMessageRow}>
-          <View style={styles.avatarMini}>
-            <MaterialCommunityIcons name="robot" size={14} color="#FF6B00" />
-          </View>
-          <View style={styles.botBubble}>
-            <Text style={styles.botText}>
-              Hello Alex! 👋 I'm your Digital Waiter today. Looking for chef recommendations, dietary pairings, or ready to order right now?
-            </Text>
-            <Text style={styles.timeText}>7:42 PM</Text>
-          </View>
-        </View>
-
-        {/* User Request */}
-        <View style={styles.userBubble}>
-          <Text style={styles.userText}>
-            Can you recommend a burger and check if you have gluten-free buns?
-          </Text>
-          <View style={styles.userTimeRow}>
-            <Text style={styles.userTimeText}>7:43 PM</Text>
-            <Ionicons name="checkmark-done" size={14} color="#FFF" />
-          </View>
-        </View>
-
-        {/* Bot Recommendation */}
-        <View style={styles.botMessageRow}>
-          <View style={styles.avatarMini}>
-            <MaterialCommunityIcons name="robot" size={14} color="#FF6B00" />
-          </View>
-          <View style={styles.botBubble}>
-            <Text style={styles.botText}>
-              Our <Text style={styles.highlightText}>Cheesy Bacon Burger Deluxe</Text> is the kitchen favorite tonight!
-            </Text>
-            <View style={styles.infoBox}>
-              <Ionicons name="checkmark-circle-outline" size={18} color="#FFF" />
-              <Text style={styles.infoBoxText}>
-                Freshly baked artisanal gluten-free brioche is available upon request!
-              </Text>
-            </View>
-            <Text style={styles.botText}>Shall I prepare this for your table?</Text>
-            <Text style={styles.timeText}>7:43 PM</Text>
-          </View>
-        </View>
-
-        {/* User Confirmation */}
-        <View style={styles.userBubble}>
-          <Text style={styles.userText}>
-            Yes please, 1 Cheesy Bacon Burger Deluxe with extra cheese, and 1 Truffle Garlic Mayo Dip.
-          </Text>
-          <View style={styles.userTimeRow}>
-            <Text style={styles.userTimeText}>7:44 PM</Text>
-            <Ionicons name="checkmark-done" size={14} color="#FFF" />
-          </View>
-        </View>
-
-        {/* Order Summary Card from AI Agent */}
-        <View style={styles.botMessageRow}>
-          <View style={styles.avatarMiniOrange}>
-            <Ionicons name="receipt-outline" size={14} color="#FFF" />
-          </View>
-          <View style={styles.orderCard}>
-            <View style={styles.orderCardHeader}>
-              <View style={styles.cartIconCircle}>
-                <Ionicons name="cart-outline" size={16} color="#FF6B00" />
+      <ScrollView 
+        ref={scrollViewRef}
+        contentContainerStyle={styles.chatContainer} 
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+      >
+        {messages.map((msg, index) => {
+          if (msg.role === 'user') {
+            return (
+              <View key={msg.id} style={styles.userBubble}>
+                <Text style={styles.userText}>{msg.text}</Text>
+                <View style={styles.userTimeRow}>
+                  <Text style={styles.userTimeText}>{msg.time}</Text>
+                  <Ionicons name="checkmark-done" size={14} color="#FFF" />
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.orderCardTitle}>Order Summary</Text>
-                <Text style={styles.orderCardSubtitle}>Review before sending to kitchen</Text>
+            );
+          }
+
+          const isLastAssistant = msg.role === 'assistant' && index === messages.length - 1;
+
+          return (
+            <View key={msg.id} style={styles.botMessageRow}>
+              <View style={styles.avatarMini}>
+                <MaterialCommunityIcons name="robot" size={14} color="#FF6B00" />
               </View>
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingText}>Pending</Text>
+              <View style={[styles.botBubble, msg.isError && { borderColor: '#FF4D4D' }]}>
+                {msg.text ? (
+                  <Text style={[styles.botText, msg.isError && { color: '#FF7777' }]}>{msg.text}</Text>
+                ) : (
+                  <ActivityIndicator size="small" color="#FF6B00" style={{ alignSelf: 'flex-start', marginVertical: 4 }} />
+                )}
+
+                {isLastAssistant && activeTool ? (
+                  <View style={styles.infoBox}>
+                    <Ionicons name="construct-outline" size={16} color="#FF6B00" />
+                    <Text style={styles.infoBoxText}>Chef AI status: {activeTool}...</Text>
+                  </View>
+                ) : null}
+
+                <Text style={styles.timeText}>{msg.time}</Text>
               </View>
             </View>
-
-            {/* Images Preview Row */}
-            <View style={styles.imagePreviewRow}>
-              <View style={styles.previewBox}>
-                <Image source={require('../../assets/burger pic.png')} style={styles.previewImage} />
-                <Text style={styles.previewLabel}>Bacon Burger</Text>
-              </View>
-              <View style={styles.previewBox}>
-                <View style={[styles.previewImage, styles.placeholderDip]} />
-                <Text style={styles.previewLabel}>Truffle Mayo</Text>
-              </View>
-            </View>
-
-            {/* Order Items List */}
-            <View style={styles.orderItemRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.itemTitle}>1x Cheesy Bacon Burger Del...</Text>
-                <Text style={styles.itemSub}>Gluten-free bun, Extra Aged Cheddar</Text>
-              </View>
-              <Text style={styles.itemPrice}>$14.99</Text>
-            </View>
-
-            <View style={styles.orderItemRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.itemTitle}>1x Truffle Garlic Mayo Dip</Text>
-                <Text style={styles.itemSub}>House special recipe</Text>
-              </View>
-              <Text style={styles.itemPrice}>$1.00</Text>
-            </View>
-
-            <View style={styles.divider} />
-
-            {/* Price Calculations */}
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Estimated Tax (8%)</Text>
-              <Text style={styles.priceVal}>$1.28</Text>
-            </View>
-
-            <View style={styles.totalRow}>
-              <View>
-                <Text style={styles.totalLabel}>TOTAL AMOUNT</Text>
-                <Text style={styles.totalVal}>$17.27</Text>
-              </View>
-              <View style={styles.etaBadge}>
-                <Ionicons name="flash-outline" size={14} color="#FFF" />
-                <Text style={styles.etaText}>Kitchen ETA: 12-15m</Text>
-              </View>
-            </View>
-
-            {/* Action Buttons */}
-            <View style={styles.orderActionsRow}>
-              <TouchableOpacity style={styles.modifyBtn}>
-                <Ionicons name="create-outline" size={16} color="#FFF" />
-                <Text style={styles.modifyBtnText}>Modify</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.confirmBtn}>
-                <Ionicons name="restaurant-outline" size={16} color="#FFF" />
-                <Text style={styles.confirmBtnText}>Confirm Order</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        <Text style={styles.statusFooter}>7:44 PM • Awaiting confirmation</Text>
+          );
+        })}
 
         {/* Quick Add Preferences Chips */}
-        <Text style={styles.quickAddLabel}>💡 Quick Add & Preferences</Text>
+        <Text style={styles.quickAddLabel}>💡 Quick Suggestions</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-          <TouchableOpacity style={styles.chip}>
-            <Text style={styles.chipText}>🥤 Add Craft Soda +$3.50</Text>
+          <TouchableOpacity style={styles.chip} onPress={() => handleSend('What burgers do you recommend?')}>
+            <Text style={styles.chipText}>🍔 Popular Burgers</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.chip}>
-            <Text style={styles.chipText}>⚠️ Nut Allergy Notes</Text>
+          <TouchableOpacity style={styles.chip} onPress={() => handleSend('Do you have gluten-free or allergen-safe options?')}>
+            <Text style={styles.chipText}>⚠️ Allergen & Gluten-Free</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.chip} onPress={() => handleSend('What craft drinks or sodas are available?')}>
+            <Text style={styles.chipText}>🥤 Drink Recommendations</Text>
           </TouchableOpacity>
         </ScrollView>
       </ScrollView>
@@ -203,12 +185,17 @@ export default function AssistantScreen() {
           </TouchableOpacity>
           <TextInput 
             style={styles.input}
-            placeholder="Ask about ingredients, wine, or m..."
+            placeholder="Ask about ingredients, wine, or menu..."
             placeholderTextColor="#777"
             value={inputText}
             onChangeText={setInputText}
+            onSubmitEditing={() => handleSend()}
           />
-          <TouchableOpacity style={styles.sendButton}>
+          <TouchableOpacity 
+            style={[styles.sendButton, (!inputText.trim() || isStreaming) && { opacity: 0.6 }]}
+            onPress={() => handleSend()}
+            disabled={!inputText.trim() || isStreaming}
+          >
             <Ionicons name="send" size={16} color="#FFF" />
           </TouchableOpacity>
         </View>

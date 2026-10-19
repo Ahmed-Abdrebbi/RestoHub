@@ -1,16 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useAuthStore } from '../../store/useAuthStore';
+import { getMyOrders } from '../../services/orderService';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
   const [darkMode, setDarkMode] = useState(true);
   const [pushAlerts, setPushAlerts] = useState(true);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [activeOrdersCount, setActiveOrdersCount] = useState(0);
 
-  const handleLogout = () => {
+  useEffect(() => {
+    fetchOrdersSummary();
+  }, []);
+
+  const fetchOrdersSummary = async () => {
+    try {
+      const data = await getMyOrders();
+      const orders = data.orders || data || [];
+      if (Array.isArray(orders)) {
+        setTotalOrders(orders.length);
+        const active = orders.filter((o) => ['PENDING', 'PREPARING', 'READY'].includes(o.status?.toUpperCase()));
+        setActiveOrdersCount(active.length);
+      }
+    } catch (e) {
+      console.log('Error loading orders summary in profile:', e);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.log('Logout error:', err);
+    }
     router.replace('/(auth)/login');
   };
+
+  const displayName = user?.name || user?.username || 'Alex Johnson';
+  const displayEmail = user?.email || 'alex.johnson@email.com';
+  const role = user?.role || 'VIP';
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -36,12 +69,12 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.userInfo}>
             <View style={styles.userNameRow}>
-              <Text style={styles.userName}>Alex Johnson</Text>
+              <Text style={styles.userName}>{displayName}</Text>
               <View style={styles.vipBadge}>
-                <Text style={styles.vipText}>● VIP</Text>
+                <Text style={styles.vipText}>● {role.toUpperCase()}</Text>
               </View>
             </View>
-            <Text style={styles.userEmail}>alex.johnson@email.com</Text>
+            <Text style={styles.userEmail}>{displayEmail}</Text>
             <View style={styles.userStatusRow}>
               <Ionicons name="star-outline" size={12} color="#FF6B00" />
               <Text style={styles.statusText}>Gold Foodie • Table #04</Text>
@@ -51,7 +84,7 @@ export default function ProfileScreen() {
 
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
-            <Text style={styles.statNumber}>20</Text>
+            <Text style={styles.statNumber}>{totalOrders > 0 ? totalOrders : 20}</Text>
             <Text style={styles.statLabel}>Total Visits</Text>
           </View>
           <View style={styles.statBox}>
@@ -124,7 +157,7 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.menuTextContainer}>
             <Text style={styles.menuTitle}>Order History</Text>
-            <Text style={styles.menuSubtitle}>2 active, 18 completed</Text>
+            <Text style={styles.menuSubtitle}>{activeOrdersCount} active, {Math.max(0, totalOrders - activeOrdersCount)} completed</Text>
           </View>
           <View style={styles.orangeDot} />
           <Ionicons name="chevron-forward" size={16} color="#777" />
