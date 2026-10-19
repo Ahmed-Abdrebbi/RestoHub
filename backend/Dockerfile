@@ -9,6 +9,7 @@ RUN npm install --omit=dev
 
 COPY . .
 
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 RUN npx prisma generate
 
 EXPOSE 3000
