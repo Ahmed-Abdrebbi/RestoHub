@@ -81,4 +81,15 @@ async function listMenuItems(req, res) {
   return res.json({ items, page, limit, total, totalPages: Math.ceil(total / limit) })
 }
 
-module.exports = { createMenuItem, updateMenuItem, deleteMenuItem, listMenuItems }
+async function getMenuItem(req, res) {
+  const { id } = req.params
+  try {
+    const item = await prisma.menuItem.findUnique({ where: { id } })
+    if (!item) return res.status(404).json({ error: "MenuItem introuvable" })
+    return res.json(item)
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Erreur serveur" })
+  }
+}
+
+module.exports = { createMenuItem, updateMenuItem, deleteMenuItem, listMenuItems, getMenuItem }
