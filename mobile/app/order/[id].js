@@ -1,76 +1,87 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { getOrderById } from '../../services/orderService';
 
 export default function OrderTrackingScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams();
+  const [loading, setLoading] = useState(true);
+  const [order, setOrder] = useState(null);
+
+  useEffect(() => {
+    if (id) {
+      fetchOrder();
+    }
+  }, [id]);
+
+  const fetchOrder = async () => {
+    try {
+      setLoading(true);
+      const data = await getOrderById(id);
+      setOrder(data);
+    } catch (err) {
+      console.log('Failed to fetch order details:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const status = (order?.status || 'PREPARING').toUpperCase();
 
   const journeySteps = [
     {
       id: 1,
       title: 'Order Received',
-      time: '7:38 PM',
+      time: order?.createdAt ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '7:38 PM',
       subtitle: 'Order confirmed & dispatched to the kitchen queue',
       icon: 'checkmark',
       completed: true,
-      active: false,
+      active: status === 'PENDING',
     },
     {
       id: 2,
       title: 'In the Kitchen',
-      time: 'Active',
+      time: status === 'PREPARING' ? 'Active' : 'Completed',
       subtitle: 'Chef is searing burgers and baking gourmet sides',
       icon: 'restaurant',
-      completed: false,
-      active: true,
+      completed: ['READY', 'DELIVERED'].includes(status),
+      active: status === 'PREPARING',
     },
     {
       id: 3,
       title: 'Ready for Table',
-      time: '~7:55 PM',
+      time: status === 'READY' ? 'Ready Now' : '~15 min',
       subtitle: 'Final seasoning, plating, and quality presentation',
       icon: 'cube-outline',
-      completed: false,
-      active: false,
+      completed: status === 'DELIVERED',
+      active: status === 'READY',
     },
     {
       id: 4,
       title: 'Served & Enjoy',
-      time: '~8:05 PM',
+      time: status === 'DELIVERED' ? 'Delivered' : '~20 min',
       subtitle: 'Delivered piping hot straight to Table #04',
       icon: 'fast-food-outline',
-      completed: false,
-      active: false,
+      completed: status === 'DELIVERED',
+      active: status === 'DELIVERED',
     },
   ];
 
-  const orderedItems = [
-    {
-      id: 1,
-      title: 'Cheesy Bacon Burger Deluxe',
-      subtitle: 'Gluten-free bun, Extra Aged Chedd...',
-      qty: 1,
-      price: '$14.99',
-      image: require('../../assets/burger pic.png'),
-    },
-    {
-      id: 2,
-      title: 'Truffle Garlic Mayo Dip',
-      subtitle: 'House special whipped dipping sa...',
-      qty: 1,
-      price: '$1.00',
-      image: null,
-    },
-    {
-      id: 3,
-      title: 'Rustic Pepperoni Slice',
-      subtitle: 'Crispy stone crust, fresh basil & ore...',
-      qty: 1,
-      price: '$6.50',
-      image: null,
-    },
-  ];
+  const items = order?.items && order.items.length > 0 ? order.items : [];
+  const totalPrice = Number(order?.totalPrice || 24.79).toFixed(2);
+  const tax = (Number(order?.totalPrice || 24.79) * 0.08).toFixed(2);
+  const subtotal = Math.max(0, Number(totalPrice) - Number(tax) - 0.50).toFixed(2);
+  const displayId = `#SM-${(id || '1234').slice(-5).toUpperCase()}`;
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#FF6B00" />
+      </View>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -79,10 +90,10 @@ export default function OrderTrackingScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Order #1234</Text>
+        <Text style={styles.headerTitle}>Order {displayId}</Text>
         <View style={styles.headerRightIcons}>
-          <TouchableOpacity style={styles.receiptHeaderBtn}>
-            <Ionicons name="receipt-outline" size={18} color="#FFF" />
+          <TouchableOpacity style={styles.receiptHeaderBtn} onPress={fetchOrder}>
+            <Ionicons name="reload-outline" size={18} color="#FFF" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.profileBtn}>
             <Ionicons name="person" size={14} color="#FF6B00" />
@@ -94,24 +105,32 @@ export default function OrderTrackingScreen() {
       <View style={styles.statusBanner}>
         <View style={styles.statusBannerHeader}>
           <View style={styles.activeOrderBadge}>
-            <Text style={styles.activeOrderText}>ACTIVE ORDER</Text>
+            <Text style={styles.activeOrderText}>{status}</Text>
           </View>
-          <Text style={styles.orderIdHeader}>#1234</Text>
+          <Text style={styles.orderIdHeader}>{displayId}</Text>
           <View style={styles.timeEstBadge}>
             <Ionicons name="time-outline" size={12} color="#FF6B00" />
             <Text style={styles.timeEstText}>15–20 min</Text>
           </View>
         </View>
 
-        <Text style={styles.statusMainTitle}>Grilling in Progress</Text>
-        <Text style={styles.statusSubTitle}>Placed today at 7:38 PM • Table #04</Text>
+        <Text style={styles.statusMainTitle}>
+          {status === 'DELIVERED'
+            ? 'Delivered & Served'
+            : status === 'READY'
+            ? 'Ready to Serve'
+            : status === 'PREPARING'
+            ? 'Grilling in Progress'
+            : 'Order Received'}
+        </Text>
+        <Text style={styles.statusSubTitle}>Placed {order?.createdAt ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today'} • Table #04</Text>
 
         <View style={styles.statusInfoBox}>
           <View style={styles.panIconCircle}>
             <MaterialCommunityIcons name="skillet" size={18} color="#FF6B00" />
           </View>
           <Text style={styles.statusInfoText}>
-            Your food is being crafted with fresh fire-grilled patties and artisan brioche!
+            Your food is being crafted with fresh fire-grilled ingredients and artisan bread!
           </Text>
         </View>
       </View>
@@ -176,7 +195,7 @@ export default function OrderTrackingScreen() {
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>Ordered Items</Text>
           <View style={styles.itemsBadge}>
-            <Text style={styles.itemsBadgeText}>3 items</Text>
+            <Text style={styles.itemsBadgeText}>{items.length} items</Text>
           </View>
         </View>
         <TouchableOpacity>
@@ -184,29 +203,54 @@ export default function OrderTrackingScreen() {
         </TouchableOpacity>
       </View>
 
-      {orderedItems.map((item) => (
-        <View key={item.id} style={styles.itemCard}>
+      {items.length === 0 ? (
+        <View style={styles.itemCard}>
           <View style={styles.itemImageContainer}>
-            {item.image ? (
-              <Image source={item.image} style={styles.itemImg} resizeMode="cover" />
-            ) : (
-              <Ionicons name="fast-food-outline" size={24} color="#555" />
-            )}
+            <Image source={require('../../assets/burger pic.png')} style={styles.itemImg} resizeMode="cover" />
           </View>
-
           <View style={styles.itemDetails}>
-            <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
-            <Text style={styles.itemSubtitle} numberOfLines={1}>{item.subtitle}</Text>
-
+            <Text style={styles.itemTitle}>Cheesy Bacon Burger Deluxe</Text>
+            <Text style={styles.itemSubtitle}>Special meal preparation</Text>
             <View style={styles.itemBottomRow}>
               <View style={styles.qtyBadge}>
-                <Text style={styles.qtyText}>Qty: {item.qty}</Text>
+                <Text style={styles.qtyText}>Qty: 1</Text>
               </View>
-              <Text style={styles.itemPrice}>{item.price}</Text>
+              <Text style={styles.itemPrice}>${totalPrice}</Text>
             </View>
           </View>
         </View>
-      ))}
+      ) : (
+        items.map((it, idx) => {
+          const itemData = it.menuItem || {};
+          const title = itemData.name || `Item #${idx + 1}`;
+          const subtitle = itemData.description || itemData.category || 'Kitchen preparation';
+          const qty = it.quantity || 1;
+          const price = `$${Number(it.unitPrice || itemData.price || 0).toFixed(2)}`;
+          return (
+            <View key={it.id || idx} style={styles.itemCard}>
+              <View style={styles.itemImageContainer}>
+                {itemData.image ? (
+                  <Image source={typeof itemData.image === 'string' ? { uri: itemData.image } : itemData.image} style={styles.itemImg} resizeMode="cover" />
+                ) : (
+                  <Ionicons name="fast-food-outline" size={24} color="#555" />
+                )}
+              </View>
+
+              <View style={styles.itemDetails}>
+                <Text style={styles.itemTitle} numberOfLines={1}>{title}</Text>
+                <Text style={styles.itemSubtitle} numberOfLines={1}>{subtitle}</Text>
+
+                <View style={styles.itemBottomRow}>
+                  <View style={styles.qtyBadge}>
+                    <Text style={styles.qtyText}>Qty: {qty}</Text>
+                  </View>
+                  <Text style={styles.itemPrice}>{price}</Text>
+                </View>
+              </View>
+            </View>
+          );
+        })
+      )}
 
       {/* Payment Summary Section */}
       <View style={styles.summaryCard}>
@@ -215,18 +259,18 @@ export default function OrderTrackingScreen() {
 
           <View style={styles.paymentMethodBadge}>
             <FontAwesome5 name="credit-card" size={11} color="#FF6B00" />
-            <Text style={styles.paymentMethodText}>Apple Pay •••• 4092</Text>
+            <Text style={styles.paymentMethodText}>Card •••• 4092</Text>
           </View>
         </View>
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Subtotal</Text>
-          <Text style={styles.summaryVal}>$22.49</Text>
+          <Text style={styles.summaryVal}>${subtotal}</Text>
         </View>
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Estimated Tax (8%)</Text>
-          <Text style={styles.summaryVal}>$1.80</Text>
+          <Text style={styles.summaryVal}>${tax}</Text>
         </View>
 
         <View style={styles.summaryRow}>
@@ -239,7 +283,7 @@ export default function OrderTrackingScreen() {
             <Text style={styles.totalLabel}>TOTAL AMOUNT</Text>
             <Text style={styles.paidInFullText}>Paid in full</Text>
           </View>
-          <Text style={styles.totalVal}>$24.79</Text>
+          <Text style={styles.totalVal}>${totalPrice}</Text>
         </View>
       </View>
 

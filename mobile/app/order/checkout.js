@@ -1,12 +1,56 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useCartStore } from '../../store/useCartStore';
+import { createOrder } from '../../services/orderService';
 
 export default function CheckoutScreen() {
   const router = useRouter();
   const [selectedAddress, setSelectedAddress] = useState('home');
   const [selectedPayment, setSelectedPayment] = useState('card');
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const cartItems = useCartStore((s) => s.items);
+  const clearCart = useCartStore((s) => s.clearCart);
+  const getTotalPrice = useCartStore((s) => s.getTotalPrice);
+
+  const subtotal = getTotalPrice();
+  const deliveryFee = subtotal > 0 ? 2.50 : 0.00;
+  const discount = subtotal > 0 ? 2.00 : 0.00;
+  const tax = subtotal > 0 ? Number((subtotal * 0.08).toFixed(2)) : 0.00;
+  const totalAmount = Math.max(0, subtotal - discount + deliveryFee + tax).toFixed(2);
+  const totalCount = cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+
+  const handlePlaceOrder = async () => {
+    if (cartItems.length === 0) {
+      setErrorMessage('Your cart is empty');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      setErrorMessage('');
+      const itemsPayload = cartItems.map((item) => ({
+        menuItemId: item.id || item._id,
+        quantity: item.quantity || 1,
+      }));
+
+      const newOrder = await createOrder({ items: itemsPayload });
+      clearCart();
+      const orderId = newOrder?.id || newOrder?._id;
+      if (orderId) {
+        router.push(`/order/${orderId}`);
+      } else {
+        router.push('/order/orders');
+      }
+    } catch (err) {
+      console.log('Order creation error:', err);
+      setErrorMessage(typeof err === 'string' ? err : err.error || err.message || 'Failed to place order.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -34,11 +78,11 @@ export default function CheckoutScreen() {
           </View>
           <View>
             <Text style={styles.kitchenName}>Smart Menu Kitchen</Text>
-            <Text style={styles.deliveryTime}>Estimated delivery: 22...</Text>
+            <Text style={styles.deliveryTime}>Estimated delivery: 20–25 min</Text>
           </View>
         </View>
         <View style={styles.itemsBadge}>
-          <Text style={styles.itemsBadgeText}>3 ITEMS</Text>
+          <Text style={styles.itemsBadgeText}>{totalCount} ITEMS</Text>
         </View>
       </View>
 
@@ -199,22 +243,22 @@ export default function CheckoutScreen() {
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Subtotal</Text>
-          <Text style={styles.summaryVal}>$22.49</Text>
+          <Text style={styles.summaryVal}>${subtotal.toFixed(2)}</Text>
         </View>
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Delivery Fee</Text>
-          <Text style={styles.summaryVal}>$2.50</Text>
+          <Text style={styles.summaryVal}>${deliveryFee.toFixed(2)}</Text>
         </View>
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Tax & Restaurant Fees</Text>
-          <Text style={styles.summaryVal}>$1.80</Text>
+          <Text style={styles.summaryVal}>${tax.toFixed(2)}</Text>
         </View>
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Discount (CHEFPromo)</Text>
-          <Text style={styles.discountVal}>-$2.00</Text>
+          <Text style={styles.discountVal}>-${discount.toFixed(2)}</Text>
         </View>
 
         <View style={styles.totalRow}>
@@ -222,18 +266,31 @@ export default function CheckoutScreen() {
             <Text style={styles.totalLabel}>Total Amount</Text>
             <Text style={styles.totalSub}>Inclusive of all local taxes</Text>
           </View>
-          <Text style={styles.totalVal}>$24.79</Text>
+          <Text style={styles.totalVal}>${totalAmount}</Text>
         </View>
       </View>
 
+      {errorMessage ? (
+        <View style={{ backgroundColor: '#3D1B1B', borderRadius: 10, padding: 12, marginBottom: 15, borderWidth: 1, borderColor: '#FF4D4D' }}>
+          <Text style={{ color: '#FF4D4D', fontSize: 13, textAlign: 'center' }}>{errorMessage}</Text>
+        </View>
+      ) : null}
+
       {/* Confirm & Place Order Button */}
       <TouchableOpacity 
-        style={styles.placeOrderBtn}
-        onPress={() => router.push('/order/orders')}
+        style={[styles.placeOrderBtn, (submitting || cartItems.length === 0) && { opacity: 0.6 }]}
+        disabled={submitting || cartItems.length === 0}
+        onPress={handlePlaceOrder}
       >
-        <Ionicons name="lock-closed-outline" size={18} color="#FFF" style={{ marginRight: 8 }} />
-        <Text style={styles.placeOrderBtnText}>Confirm & Place Order</Text>
-        <Text style={styles.btnPriceTag}>$24.79 →</Text>
+        {submitting ? (
+          <ActivityIndicator size="small" color="#FFF" />
+        ) : (
+          <>
+            <Ionicons name="lock-closed-outline" size={18} color="#FFF" style={{ marginRight: 8 }} />
+            <Text style={styles.placeOrderBtnText}>Confirm & Place Order</Text>
+            <Text style={styles.btnPriceTag}>${totalAmount} →</Text>
+          </>
+        )}
       </TouchableOpacity>
 
       <Text style={styles.legalNoticeText}>

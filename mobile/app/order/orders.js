@@ -1,68 +1,96 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { getMyOrders } from '../../services/orderService';
 
 export default function OrdersScreen() {
   const router = useRouter();
   const [selectedFilter, setSelectedFilter] = useState('All Orders');
+  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState([]);
 
-  const ordersList = [
-    {
-      id: '#SM-84920',
-      time: 'Today, 7:42 PM',
-      status: 'PREPARING',
-      statusColor: '#FF6B00',
-      statusBg: '#2A1A10',
-      title: 'Cheesy Bacon Burger Deluxe',
-      subtitle: 'Truffle Garlic Mayo Dip +1 more • 3...',
-      price: '$24.79',
-      table: 'Table #04',
-      image: require('../../assets/burger pic.png'),
-      progressStep: 'On the grill & assembling',
-      timeLeft: '~7 mins left',
-      type: 'preparing',
-    },
-    {
-      id: '#SM-81204',
-      time: 'Yesterday, 1:15 PM',
-      status: 'READY',
-      statusColor: '#00A3FF',
-      statusBg: '#102230',
-      title: 'Rustic Pepperoni Slice',
-      subtitle: 'Craft Citrus Soda • 2 items',
-      price: '$11.50',
-      table: 'Counter B',
-      image: null,
-      type: 'ready',
-    },
-    {
-      id: '#SM-79541',
-      time: 'Oct 24, 8:30 PM',
-      status: 'DELIVERED',
-      statusColor: '#A0A0A0',
-      statusBg: '#222222',
-      title: 'Double Stack Smashburger',
-      subtitle: 'Truffle Fries • 2 items',
-      price: '$21.90',
-      table: 'Paid via Apple Pay',
-      image: null,
-      type: 'delivered_rate',
-    },
-    {
-      id: '#SM-78109',
-      time: 'Oct 21, 6:10 PM',
-      status: 'DELIVERED',
-      statusColor: '#A0A0A0',
-      statusBg: '#222222',
-      title: 'Smoked Honey Glazed Wings',
-      subtitle: 'Herb Ranch Dip • 1 item',
-      price: '$14.20',
-      table: 'Dine-in',
-      image: null,
-      type: 'delivered_details',
-    },
-  ];
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  const loadOrders = async () => {
+    try {
+      setLoading(true);
+      const data = await getMyOrders();
+      const list = data.orders || data || [];
+      setOrders(Array.isArray(list) ? list : []);
+    } catch (err) {
+      console.log('Error loading orders:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const activeCount = orders.filter((o) =>
+    ['PENDING', 'PREPARING', 'READY'].includes(o.status?.toUpperCase())
+  ).length;
+
+  const filteredOrders = orders.filter((order) => {
+    const s = (order.status || '').toUpperCase();
+    if (selectedFilter.startsWith('Active')) {
+      return ['PENDING', 'PREPARING', 'READY'].includes(s);
+    }
+    if (selectedFilter === 'Completed') {
+      return s === 'DELIVERED';
+    }
+    if (selectedFilter === 'Cancelled') {
+      return s === 'CANCELLED';
+    }
+    return true;
+  });
+
+  const formatOrder = (order) => {
+    const status = (order.status || 'PENDING').toUpperCase();
+    let statusColor = '#FF6B00';
+    let statusBg = '#2A1A10';
+    let type = 'preparing';
+
+    if (status === 'READY') {
+      statusColor = '#00A3FF';
+      statusBg = '#102230';
+      type = 'ready';
+    } else if (status === 'DELIVERED') {
+      statusColor = '#A0A0A0';
+      statusBg = '#222222';
+      type = 'delivered_rate';
+    } else if (status === 'CANCELLED') {
+      statusColor = '#FF4D4D';
+      statusBg = '#3D1B1B';
+      type = 'cancelled';
+    }
+
+    const firstItem = order.items?.[0]?.menuItem;
+    const title = firstItem?.name || `Order #${order.id?.slice(-5) || '1'}`;
+    const itemCount = order.items?.length || 1;
+    const subtitle = itemCount > 1 ? `${firstItem?.name || 'Item'} +${itemCount - 1} more • ${itemCount} items` : `${itemCount} item`;
+    const price = `$${Number(order.totalPrice || 0).toFixed(2)}`;
+    const time = order.createdAt
+      ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : 'Today';
+
+    return {
+      rawId: order.id,
+      displayId: `#SM-${(order.id || '').slice(-5).toUpperCase()}`,
+      time,
+      status,
+      statusColor,
+      statusBg,
+      title,
+      subtitle,
+      price,
+      table: 'Table #04 • Dine-in',
+      image: firstItem?.image || null,
+      progressStep: status === 'PREPARING' ? 'On the grill & assembling' : 'Order received & queued',
+      timeLeft: status === 'PREPARING' ? '~7 mins left' : '~15 mins left',
+      type,
+    };
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -72,14 +100,14 @@ export default function OrdersScreen() {
           <Ionicons name="arrow-back" size={22} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Orders</Text>
-        <TouchableOpacity style={styles.notificationBtn}>
-          <Ionicons name="notifications-outline" size={20} color="#FFF" />
+        <TouchableOpacity style={styles.notificationBtn} onPress={loadOrders}>
+          <Ionicons name="reload-outline" size={18} color="#FFF" />
         </TouchableOpacity>
       </View>
 
       {/* Filter Chips Bar */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-        {['All Orders', 'Active (2)', 'Completed', 'Cancelled'].map((filter) => (
+        {['All Orders', `Active (${activeCount})`, 'Completed', 'Cancelled'].map((filter) => (
           <TouchableOpacity
             key={filter}
             style={[styles.filterChip, selectedFilter === filter && styles.activeFilterChip]}
@@ -92,112 +120,127 @@ export default function OrdersScreen() {
         ))}
       </ScrollView>
 
-      {/* Orders List */}
-      {ordersList.map((order) => (
-        <View key={order.id} style={styles.orderCard}>
-          {/* Top Info Header */}
-          <View style={styles.cardHeader}>
-            <View style={styles.cardHeaderLeft}>
-              <Text style={styles.orderId}>{order.id}</Text>
-              <Text style={styles.dotSeparator}>•</Text>
-              <Text style={styles.orderTime}>{order.time}</Text>
-            </View>
-            <View style={[styles.statusBadge, { backgroundColor: order.statusBg }]}>
-              <View style={[styles.statusDot, { backgroundColor: order.statusColor }]} />
-              <Text style={[styles.statusText, { color: order.statusColor }]}>{order.status}</Text>
-            </View>
-          </View>
-
-          {/* Item Details */}
-          <View style={styles.itemMainRow}>
-            <View style={styles.imagePlaceholder}>
-              {order.image ? (
-                <Image source={order.image} style={styles.itemImg} resizeMode="cover" />
-              ) : (
-                <Ionicons name="fast-food-outline" size={24} color="#555" />
-              )}
-            </View>
-
-            <View style={styles.itemInfo}>
-              <Text style={styles.itemTitle}>{order.title}</Text>
-              <Text style={styles.itemSubtitle}>{order.subtitle}</Text>
-              <View style={styles.priceRow}>
-                <Text style={styles.priceText}>{order.price}</Text>
-                <Text style={styles.tableText}> • {order.table}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Preparing Progress Bar */}
-          {order.type === 'preparing' && (
-            <View style={styles.progressContainer}>
-              <View style={styles.progressHeader}>
-                <View style={styles.progressStatusLeft}>
-                  <MaterialCommunityIcons name="silverware-fork-knife" size={14} color="#FF6B00" />
-                  <Text style={styles.progressStatusText}>{order.progressStep}</Text>
-                </View>
-                <Text style={styles.timeLeftText}>{order.timeLeft}</Text>
-              </View>
-              <View style={styles.progressBarBackground}>
-                <View style={styles.progressBarFill} />
-              </View>
-            </View>
-          )}
-
-          {/* Action Buttons depending on status */}
-          <View style={styles.actionsRow}>
-            {order.type === 'preparing' && (
-              <>
-                <TouchableOpacity style={styles.trackBtn} onPress={() => router.push('/order/123')}>
-                  <Ionicons name="navigate-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.trackBtnText}>Track Order</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.receiptBtn}>
-                  <Ionicons name="receipt-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.receiptBtnText}>Receipt</Text>
-                </TouchableOpacity>
-              </>
-            )}
-
-            {order.type === 'ready' && (
-              <>
-                <TouchableOpacity style={styles.qrBtn}>
-                  <Ionicons name="qr-code-outline" size={16} color="#00A3FF" style={{ marginRight: 6 }} />
-                  <Text style={styles.qrBtnText}>View QR Code</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.secondaryDetailsBtn}>
-                  <Text style={styles.secondaryDetailsText}>Details</Text>
-                </TouchableOpacity>
-              </>
-            )}
-
-            {order.type === 'delivered_rate' && (
-              <>
-                <TouchableOpacity style={styles.secondaryActionBtn}>
-                  <Ionicons name="reload-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.secondaryActionText}>Reorder</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.secondaryActionBtn}>
-                  <Ionicons name="star-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.secondaryActionText}>Rate</Text>
-                </TouchableOpacity>
-              </>
-            )}
-
-            {order.type === 'delivered_details' && (
-              <>
-                <TouchableOpacity style={styles.secondaryActionBtn}>
-                  <Ionicons name="reload-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.secondaryActionText}>Reorder</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.secondaryActionBtn}>
-                  <Text style={styles.secondaryActionText}>Details</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
+      {loading ? (
+        <ActivityIndicator size="large" color="#FF6B00" style={{ marginVertical: 40 }} />
+      ) : filteredOrders.length === 0 ? (
+        <View style={{ alignItems: 'center', marginVertical: 40 }}>
+          <Ionicons name="receipt-outline" size={48} color="#444" style={{ marginBottom: 10 }} />
+          <Text style={{ color: '#888', fontSize: 15 }}>No orders found</Text>
+          <TouchableOpacity
+            style={{ marginTop: 15, backgroundColor: '#FF6B00', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}
+            onPress={() => router.push('/(tabs)/home')}
+          >
+            <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Order Now</Text>
+          </TouchableOpacity>
         </View>
-      ))}
+      ) : (
+        filteredOrders.map((rawOrder) => {
+          const order = formatOrder(rawOrder);
+          return (
+            <View key={order.rawId} style={styles.orderCard}>
+              {/* Top Info Header */}
+              <View style={styles.cardHeader}>
+                <View style={styles.cardHeaderLeft}>
+                  <Text style={styles.orderId}>{order.displayId}</Text>
+                  <Text style={styles.dotSeparator}>•</Text>
+                  <Text style={styles.orderTime}>{order.time}</Text>
+                </View>
+                <View style={[styles.statusBadge, { backgroundColor: order.statusBg }]}>
+                  <View style={[styles.statusDot, { backgroundColor: order.statusColor }]} />
+                  <Text style={[styles.statusText, { color: order.statusColor }]}>{order.status}</Text>
+                </View>
+              </View>
+
+              {/* Item Details */}
+              <View style={styles.itemMainRow}>
+                <View style={styles.imagePlaceholder}>
+                  {order.image ? (
+                    <Image 
+                      source={typeof order.image === 'string' ? { uri: order.image } : order.image} 
+                      style={styles.itemImg} 
+                      resizeMode="cover" 
+                    />
+                  ) : (
+                    <Ionicons name="fast-food-outline" size={24} color="#555" />
+                  )}
+                </View>
+
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemTitle}>{order.title}</Text>
+                  <Text style={styles.itemSubtitle}>{order.subtitle}</Text>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.priceText}>{order.price}</Text>
+                    <Text style={styles.tableText}> • {order.table}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Preparing Progress Bar */}
+              {order.type === 'preparing' && (
+                <View style={styles.progressContainer}>
+                  <View style={styles.progressHeader}>
+                    <View style={styles.progressStatusLeft}>
+                      <MaterialCommunityIcons name="silverware-fork-knife" size={14} color="#FF6B00" />
+                      <Text style={styles.progressStatusText}>{order.progressStep}</Text>
+                    </View>
+                    <Text style={styles.timeLeftText}>{order.timeLeft}</Text>
+                  </View>
+                  <View style={styles.progressBarBackground}>
+                    <View style={styles.progressBarFill} />
+                  </View>
+                </View>
+              )}
+
+              {/* Action Buttons depending on status */}
+              <View style={styles.actionsRow}>
+                {order.type === 'preparing' && (
+                  <>
+                    <TouchableOpacity style={styles.trackBtn} onPress={() => router.push(`/order/${order.rawId}`)}>
+                      <Ionicons name="navigate-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.trackBtnText}>Track Order</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.receiptBtn} onPress={() => router.push(`/order/${order.rawId}`)}>
+                      <Ionicons name="receipt-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.receiptBtnText}>Receipt</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {order.type === 'ready' && (
+                  <>
+                    <TouchableOpacity style={styles.qrBtn} onPress={() => router.push(`/order/${order.rawId}`)}>
+                      <Ionicons name="qr-code-outline" size={16} color="#00A3FF" style={{ marginRight: 6 }} />
+                      <Text style={styles.qrBtnText}>View QR Code</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.secondaryDetailsBtn} onPress={() => router.push(`/order/${order.rawId}`)}>
+                      <Text style={styles.secondaryDetailsText}>Details</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {order.type === 'delivered_rate' && (
+                  <>
+                    <TouchableOpacity style={styles.secondaryActionBtn} onPress={() => router.push('/(tabs)/home')}>
+                      <Ionicons name="reload-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.secondaryActionText}>Reorder</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.secondaryActionBtn} onPress={() => router.push(`/order/${order.rawId}`)}>
+                      <Ionicons name="star-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.secondaryActionText}>Rate</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {order.type !== 'preparing' && order.type !== 'ready' && order.type !== 'delivered_rate' && (
+                  <TouchableOpacity style={styles.secondaryActionBtn} onPress={() => router.push(`/order/${order.rawId}`)}>
+                    <Text style={styles.secondaryActionText}>Details</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          );
+        })
+      )}
 
       {/* Bottom Footer Text */}
       <Text style={styles.footerNote}>Past 30 days of dine-in & takeaway</Text>

@@ -1,57 +1,24 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useCartStore } from '../../store/useCartStore';
 
 export default function CartScreen() {
   const router = useRouter();
 
-  const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      title: 'Cheesy Bacon Burger Delu...',
-      subtitle: 'Extra Aged Cheddar, Brioche',
-      price: 14.99,
-      quantity: 1,
-      image: require('../../assets/burger pic.png'),
-    },
-    {
-      id: 2,
-      title: 'Truffle Garlic Mayo Dip',
-      subtitle: 'House special recipe',
-      price: 1.00,
-      quantity: 1,
-      image: null,
-    },
-    {
-      id: 3,
-      title: 'Rustic Pepperoni Slice',
-      subtitle: 'Crispy crust, fresh basil',
-      price: 6.50,
-      quantity: 1,
-      image: null,
-    },
-  ]);
+  const cartItems = useCartStore((s) => s.items);
+  const addToCart = useCartStore((s) => s.addToCart);
+  const decreaseQuantity = useCartStore((s) => s.decreaseQuantity);
+  const removeFromCart = useCartStore((s) => s.removeFromCart);
+  const clearCart = useCartStore((s) => s.clearCart);
+  const getTotalPrice = useCartStore((s) => s.getTotalPrice);
 
-  const updateQuantity = (id, delta) => {
-    setCartItems(prev =>
-      prev.map(item => {
-        if (item.id === id) {
-          const newQty = Math.max(1, item.quantity + delta);
-          return { ...item, quantity: newQty };
-        }
-        return item;
-      })
-    );
-  };
-
-  const removeItem = (id) => {
-    setCartItems(prev => prev.filter(item => item.id !== id));
-  };
-
-  const clearCart = () => {
-    setCartItems([]);
-  };
+  const subtotal = getTotalPrice();
+  const discount = subtotal > 0 ? 2.00 : 0.00;
+  const serviceFee = subtotal > 0 ? 1.50 : 0.00;
+  const tax = subtotal > 0 ? Number((subtotal * 0.08).toFixed(2)) : 0.00;
+  const totalAmount = Math.max(0, subtotal - discount + serviceFee + tax).toFixed(2);
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -96,44 +63,65 @@ export default function CartScreen() {
       </View>
 
       {/* Cart Items List */}
-      {cartItems.map((item) => (
-        <View key={item.id} style={styles.cartItemCard}>
-          <View style={styles.itemImageContainer}>
-            {item.image ? (
-              <Image source={item.image} style={styles.itemImage} resizeMode="cover" />
-            ) : (
-              <View style={styles.itemImagePlaceholder}>
-                <Ionicons name="fast-food-outline" size={24} color="#555" />
-              </View>
-            )}
-          </View>
-
-          <View style={styles.itemDetails}>
-            <View style={styles.itemTopRow}>
-              <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
-              <TouchableOpacity onPress={() => removeItem(item.id)}>
-                <Ionicons name="close" size={18} color="#777" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
-
-            <View style={styles.itemBottomRow}>
-              <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
-
-              <View style={styles.quantityBox}>
-                <TouchableOpacity onPress={() => updateQuantity(item.id, -1)}>
-                  <Text style={styles.qtyMinusText}>—</Text>
-                </TouchableOpacity>
-                <Text style={styles.qtyValText}>{item.quantity}</Text>
-                <TouchableOpacity onPress={() => updateQuantity(item.id, 1)}>
-                  <Text style={styles.qtyPlusText}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
+      {cartItems.length === 0 ? (
+        <View style={{ alignItems: 'center', marginVertical: 30 }}>
+          <Ionicons name="cart-outline" size={48} color="#444" style={{ marginBottom: 10 }} />
+          <Text style={{ color: '#888', fontSize: 15 }}>Your cart is empty</Text>
+          <TouchableOpacity 
+            style={{ marginTop: 15, backgroundColor: '#FF6B00', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}
+            onPress={() => router.push('/(tabs)/home')}
+          >
+            <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Browse Menu</Text>
+          </TouchableOpacity>
         </View>
-      ))}
+      ) : (
+        cartItems.map((item) => {
+          const itemId = item.id || item._id;
+          const price = Number(item.price) || 0;
+          return (
+            <View key={itemId} style={styles.cartItemCard}>
+              <View style={styles.itemImageContainer}>
+                {item.image ? (
+                  <Image 
+                    source={typeof item.image === 'string' ? { uri: item.image } : item.image} 
+                    style={styles.itemImage} 
+                    resizeMode="cover" 
+                  />
+                ) : (
+                  <View style={styles.itemImagePlaceholder}>
+                    <Ionicons name="fast-food-outline" size={24} color="#555" />
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.itemDetails}>
+                <View style={styles.itemTopRow}>
+                  <Text style={styles.itemTitle} numberOfLines={1}>{item.title || item.name}</Text>
+                  <TouchableOpacity onPress={() => removeFromCart(itemId)}>
+                    <Ionicons name="close" size={18} color="#777" />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.itemSubtitle}>{item.subtitle || item.category || 'Special order'}</Text>
+
+                <View style={styles.itemBottomRow}>
+                  <Text style={styles.itemPrice}>${price.toFixed(2)}</Text>
+
+                  <View style={styles.quantityBox}>
+                    <TouchableOpacity onPress={() => decreaseQuantity(itemId)}>
+                      <Text style={styles.qtyMinusText}>—</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.qtyValText}>{item.quantity}</Text>
+                    <TouchableOpacity onPress={() => addToCart(item, 1)}>
+                      <Text style={styles.qtyPlusText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </View>
+          );
+        })
+      )}
 
       {/* Kitchen Instructions Button */}
       <TouchableOpacity style={styles.instructionsBar}>
@@ -169,22 +157,22 @@ export default function CartScreen() {
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Items Subtotal</Text>
-          <Text style={styles.summaryValue}>$22.49</Text>
+          <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
         </View>
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Chef Special Discount</Text>
-          <Text style={styles.discountValue}>-$2.00</Text>
+          <Text style={styles.discountValue}>-${discount.toFixed(2)}</Text>
         </View>
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Dine-In Service Fee</Text>
-          <Text style={styles.summaryValue}>$1.50</Text>
+          <Text style={styles.summaryValue}>${serviceFee.toFixed(2)}</Text>
         </View>
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Estimated Tax (8%)</Text>
-          <Text style={styles.summaryValue}>$1.80</Text>
+          <Text style={styles.summaryValue}>${tax.toFixed(2)}</Text>
         </View>
 
         <View style={styles.totalRow}>
@@ -192,12 +180,16 @@ export default function CartScreen() {
             <Text style={styles.totalLabel}>TOTAL AMOUNT</Text>
             <Text style={styles.totalSubtext}>Includes all local hospitality taxes</Text>
           </View>
-          <Text style={styles.totalValue}>$23.79</Text>
+          <Text style={styles.totalValue}>${totalAmount}</Text>
         </View>
       </View>
 
       {/* Send Order Button */}
-      <TouchableOpacity style={styles.sendOrderBtn} onPress={() => router.push('/order/123')}>
+      <TouchableOpacity 
+        style={[styles.sendOrderBtn, cartItems.length === 0 && { opacity: 0.5 }]} 
+        disabled={cartItems.length === 0}
+        onPress={() => router.push('/order/checkout')}
+      >
         <Ionicons name="restaurant-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
         <Text style={styles.sendOrderBtnText}>Send Order to Kitchen</Text>
         <Ionicons name="arrow-forward" size={20} color="#FFF" style={{ marginLeft: 8 }} />
