@@ -1,20 +1,62 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import { getMenuItems } from '../../services/menuService';
+import { useMenuStore } from '../../store/useMenuStore';
 
 export default function CategoriesScreen() {
   const router = useRouter();
   const [selectedFilter, setSelectedFilter] = useState('All Offerings');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const menuItems = useMenuStore((s) => s.items);
+  const setMenuItems = useMenuStore((s) => s.setMenuItems);
 
-  const categoriesData = [
-    { title: 'Burgers', items: '28 Items', badge: '★ 4.9' },
-    { title: 'Pizza', items: '18 Items', badge: 'Hot' },
-    { title: 'Sushi', items: '22 Items', badge: 'Fresh' },
-    { title: 'Chicken', items: '15 Items', badge: 'Crispy' },
-    { title: 'Grill', items: '19 Items', badge: 'Smoked' },
-    { title: 'Shawarma', items: '12 Items', badge: 'Toasted' },
-  ];
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      const data = await getMenuItems();
+      const items = data.items || [];
+      setMenuItems(Array.isArray(items) ? items : []);
+    } catch (err) {
+      console.log('Failed to fetch categories:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const categoryCounts = {};
+  (menuItems || []).forEach((item) => {
+    const cat = item.category || 'Other';
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+  });
+
+  const badges = ['★ 4.9', 'Hot', 'Fresh', 'Crispy', 'Smoked', 'Trending', 'Chef Pick'];
+
+  const derivedCategories = Object.keys(categoryCounts).length > 0
+    ? Object.entries(categoryCounts).map(([title, count], idx) => ({
+        title,
+        items: `${count} Item${count > 1 ? 's' : ''}`,
+        badge: badges[idx % badges.length],
+      }))
+    : [
+        { title: 'Burgers', items: '0 Items', badge: '★ 4.9' },
+        { title: 'Pizza', items: '0 Items', badge: 'Hot' },
+        { title: 'Sushi', items: '0 Items', badge: 'Fresh' },
+        { title: 'Chicken', items: '0 Items', badge: 'Crispy' },
+        { title: 'Grill', items: '0 Items', badge: 'Smoked' },
+        { title: 'Shawarma', items: '0 Items', badge: 'Toasted' },
+      ];
+
+  const filteredCategories = derivedCategories.filter((cat) => {
+    if (searchQuery.trim() === '') return true;
+    return cat.title.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -40,6 +82,8 @@ export default function CategoriesScreen() {
             style={styles.searchInput}
             placeholder="Search culinary cravings..."
             placeholderTextColor="#777"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
         </View>
         <TouchableOpacity style={styles.filterButton}>
@@ -65,7 +109,7 @@ export default function CategoriesScreen() {
       <View style={styles.sectionHeader}>
         <View>
           <Text style={styles.sectionTitle}>Explore Menu</Text>
-          <Text style={styles.sectionSubtitle}>6 curated culinary collections</Text>
+          <Text style={styles.sectionSubtitle}>{filteredCategories.length} curated culinary collections</Text>
         </View>
         <View style={styles.trendingBadge}>
           <Ionicons name="flame" size={12} color="#FF6B00" />
@@ -73,26 +117,41 @@ export default function CategoriesScreen() {
         </View>
       </View>
 
-      <View style={styles.gridContainer}>
-        {categoriesData.map((cat, index) => (
-          <TouchableOpacity key={index} style={styles.card}>
-            <View style={styles.cardImagePlaceholder}>
-              <View style={styles.badgeBox}>
-                <Text style={styles.badgeText}>{cat.badge}</Text>
+      {loading ? (
+        <ActivityIndicator size="large" color="#FF6B00" style={{ marginVertical: 30 }} />
+      ) : (
+        <View style={styles.gridContainer}>
+          {filteredCategories.map((cat, index) => (
+            <TouchableOpacity 
+              key={index} 
+              style={styles.card}
+              onPress={() => {
+                const itemInCat = (menuItems || []).find((m) => (m.category || '').toLowerCase() === cat.title.toLowerCase());
+                if (itemInCat) {
+                  router.push(`/menu-item/${itemInCat.id || itemInCat._id}`);
+                } else {
+                  router.push('/(tabs)/home');
+                }
+              }}
+            >
+              <View style={styles.cardImagePlaceholder}>
+                <View style={styles.badgeBox}>
+                  <Text style={styles.badgeText}>{cat.badge}</Text>
+                </View>
               </View>
-            </View>
-            <View style={styles.cardFooter}>
-              <View>
-                <Text style={styles.cardTitle}>{cat.title}</Text>
-                <Text style={styles.cardItems}>{cat.items}</Text>
+              <View style={styles.cardFooter}>
+                <View>
+                  <Text style={styles.cardTitle}>{cat.title}</Text>
+                  <Text style={styles.cardItems}>{cat.items}</Text>
+                </View>
+                <View style={styles.arrowIconBox}>
+                  <Ionicons name="arrow-forward" size={14} color="#FFF" />
+                </View>
               </View>
-              <View style={styles.arrowIconBox}>
-                <Ionicons name="arrow-forward" size={14} color="#FFF" />
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       <View style={styles.aiCard}>
         <View style={styles.aiLeftRow}>

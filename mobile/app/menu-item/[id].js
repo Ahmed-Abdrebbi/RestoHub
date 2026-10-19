@@ -1,11 +1,19 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, ActivityIndicator } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { getMenuItemById, getMenuItems } from '../../services/menuService';
+import { useMenuStore } from '../../store/useMenuStore';
+import { useCartStore } from '../../store/useCartStore';
 
 export default function MealDetailScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams();
+  const addToCart = useCartStore((s) => s.addToCart);
   const [quantity, setQuantity] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [item, setItem] = useState(null);
+
   const [options, setOptions] = useState({
     cheese: true,
     bacon: true,
@@ -14,9 +22,90 @@ export default function MealDetailScreen() {
     truffle: false,
   });
 
-  const toggleOption = (key) => {
-    setOptions(prev => ({ ...prev, [key]: !prev[key] }));
+  const optionPrices = {
+    cheese: 0.50,
+    bacon: 1.50,
+    onions: 0.75,
+    jalapeno: 0.50,
+    truffle: 1.00,
   };
+
+  useEffect(() => {
+    fetchItemDetails();
+  }, [id]);
+
+  const fetchItemDetails = async () => {
+    try {
+      setLoading(true);
+      // First check cached items in store
+      const cached = useMenuStore.getState().items.find((i) => (i.id || i._id) === id);
+      if (cached) {
+        setItem(cached);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch from API
+      try {
+        const data = await getMenuItemById(id);
+        const fetchedItem = data.item || data.data || data;
+        if (fetchedItem && (fetchedItem.name || fetchedItem.id)) {
+          setItem(fetchedItem);
+          return;
+        }
+      } catch (err) {
+        // Fallback to getMenuItems if single endpoint fails
+        const allData = await getMenuItems();
+        const items = allData.items || [];
+        const found = items.find((i) => (i.id || i._id) === id);
+        if (found) {
+          setItem(found);
+          return;
+        }
+      }
+    } catch (err) {
+      console.log('Error fetching item details:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleOption = (key) => {
+    setOptions((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const basePrice = item?.price != null ? Number(item.price) : 14.99;
+  const optionsTotal = Object.entries(options).reduce((sum, [key, isChecked]) => {
+    return sum + (isChecked ? (optionPrices[key] || 0) : 0);
+  }, 0);
+  const unitPrice = basePrice + optionsTotal;
+  const totalPrice = (unitPrice * quantity).toFixed(2);
+
+  const handleAddToCart = () => {
+    addToCart(
+      {
+        id: item?.id || item?._id || id,
+        title: item?.name || item?.title || 'Cheesy Bacon Burger Deluxe',
+        name: item?.name || item?.title || 'Cheesy Bacon Burger Deluxe',
+        price: unitPrice,
+        image: item?.image || null,
+        subtitle: `${item?.category || 'Chef Special'} • Custom options`,
+      },
+      quantity
+    );
+    router.push('/(tabs)/cart');
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#FF6B00" />
+      </View>
+    );
+  }
+
+  const title = item?.name || item?.title || 'Cheesy Bacon Burger Deluxe';
+  const description = item?.description || 'Two flame-grilled 100% prime beef patties layered with crispy smoked bacon, melted aged cheddar, crisp romaine lettuce, ripe vine...';
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -36,11 +125,19 @@ export default function MealDetailScreen() {
       </View>
 
       <View style={styles.imageContainer}>
-        <Image 
-          source={require('../../assets/burger pic.png')} 
-          style={styles.burgerImage}
-          resizeMode="cover"
-        />
+        {item?.image ? (
+          <Image 
+            source={typeof item.image === 'string' ? { uri: item.image } : item.image} 
+            style={styles.burgerImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <Image 
+            source={require('../../assets/burger pic.png')} 
+            style={styles.burgerImage}
+            resizeMode="cover"
+          />
+        )}
         <View style={styles.imageOverlayTop}>
           <TouchableOpacity style={styles.overlayIconBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={18} color="#FFF" />
@@ -50,13 +147,13 @@ export default function MealDetailScreen() {
           </TouchableOpacity>
         </View>
         <View style={styles.chefSpecialBadge}>
-          <Text style={styles.chefSpecialText}>● CHEF'S SPECIAL</Text>
+          <Text style={styles.chefSpecialText}>● {item?.category ? item.category.toUpperCase() : "CHEF'S SPECIAL"}</Text>
         </View>
       </View>
 
       <View style={styles.titleRow}>
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>Cheesy Bacon Burger Deluxe</Text>
+          <Text style={styles.title}>{title}</Text>
         </View>
         <View style={styles.quantityBox}>
           <TouchableOpacity onPress={() => setQuantity(Math.max(1, quantity - 1))}>
@@ -72,11 +169,11 @@ export default function MealDetailScreen() {
       <View style={styles.metaRow}>
         <View style={styles.metaBadge}>
           <Ionicons name="flame-outline" size={14} color="#FF6B00" />
-          <Text style={styles.metaText}>650 kcal</Text>
+          <Text style={styles.metaText}>{item?.calories || '650'} kcal</Text>
         </View>
         <View style={styles.metaBadge}>
           <Ionicons name="star" size={14} color="#FFA500" />
-          <Text style={styles.metaText}>4.9 (128)</Text>
+          <Text style={styles.metaText}>{item?.rating || '4.9'} (128)</Text>
         </View>
         <View style={styles.metaBadge}>
           <Ionicons name="time-outline" size={14} color="#AAA" />
@@ -86,12 +183,12 @@ export default function MealDetailScreen() {
 
       <Text style={styles.sectionHeading}>Description</Text>
       <Text style={styles.descriptionText}>
-        Two flame-grilled 100% prime beef patties layered with crispy smoked bacon, melted aged cheddar, crisp romaine lettuce, ripe vine...{' '}
+        {description}{' '}
         <Text style={styles.readMore}>Read More</Text>
       </Text>
 
       <Text style={styles.sectionHeading}>Additional options</Text>
-      <Text style={styles.subHeading}>CUSTOMIZE YOUR BURGER</Text>
+      <Text style={styles.subHeading}>CUSTOMIZE YOUR MEAL</Text>
 
       {[
         { key: 'cheese', title: 'Extra Aged Cheddar Cheese', subtitle: 'Sharp & melted', price: '+$0.50' },
@@ -124,9 +221,9 @@ export default function MealDetailScreen() {
       <View style={styles.footerBar}>
         <View>
           <Text style={styles.totalPriceLabel}>TOTAL PRICE</Text>
-          <Text style={styles.totalPriceValue}>$14.99</Text>
+          <Text style={styles.totalPriceValue}>${totalPrice}</Text>
         </View>
-        <TouchableOpacity style={styles.addToCartBtn} onPress={() => router.push('/(tabs)/cart')}>
+        <TouchableOpacity style={styles.addToCartBtn} onPress={handleAddToCart}>
           <Ionicons name="bag-outline" size={18} color="#FFF" style={{ marginRight: 6 }} />
           <Text style={styles.addToCartText}>Add to cart</Text>
         </TouchableOpacity>

@@ -21,7 +21,7 @@ export default function HomeScreen() {
     try {
       setLoading(true);
       const data = await getMenuItems();
-      const items = data.menuItems || data.data || data || [];
+      const items = data.items || [];
       setMenuItems(Array.isArray(items) ? items : []);
     } catch (err) {
       console.log('Failed to fetch menu items:', err);
@@ -30,7 +30,7 @@ export default function HomeScreen() {
     }
   };
 
-  // Derive categories from real data
+
   const categoryIcons = {
     'Burger': 'hamburger',
     'Pizza': 'pizza',
@@ -55,7 +55,7 @@ export default function HomeScreen() {
     count: `${count} items`,
   }));
 
-  // Show up to 4 popular meals
+
   const popularMeals = (menuItems || []).slice(0, 4);
 
   return (
